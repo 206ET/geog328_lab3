@@ -1,1 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Earthquake Example</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { position: fixed; inset: 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    // 👇 replace this line later with your real token
+    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN_HERE';
+
+    // Create map
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11', // Light map style
+      center: [138, 37],
+      zoom: 3.8
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+    // Load earthquake data
+    map.on('load', () => {
+      map.addSource('quakes', {
+        type: 'geojson',
+        data: 'assets/earthquakes.geojson'
+      });
+
+      map.addLayer({
+        id: 'quakes',
+        type: 'circle',
+        source: 'quakes',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 0, 3, 6, 10],
+          'circle-color': '#ff4136',
+          'circle-opacity': 0.8
+        }
+      });
+    });
+  </script>
+</body>
+</html>
 
