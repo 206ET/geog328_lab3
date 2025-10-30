@@ -1,1 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lab 3 — Japan & Earthquakes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.js"></script>
+  <style>
+    :root { --panel-w: 380px; }
+    html, body { margin: 0; height: 100%; }
+    #map { position: fixed; inset: 0; }
+
+    .panel {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: var(--panel-w);
+      max-height: calc(100dvh - 32px);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(4px);
+      border-radius: 14px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      padding: 14px;
+      overflow: auto;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    h1 { margin: 0 0 8px; font-size: 18px; }
+    .sub { color: #555; font-size: 12px; margin: 0 0 8px; }
+    .links a { color: #0066cc; text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; }
+    th { cursor: pointer; }
+    th.sort-asc::after { content: " ▲"; }
+    th.sort-desc::after { content: " ▼"; }
+
+    @media (max-width: 1024px) {
+      .panel { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <aside class="panel">
+    <h1>Japan & Earthquakes</h1>
+    <p class="sub">Dark basemap + 2 datasets + sortable table. Panel hides on small screens.</p>
+    <div class="links">
+      View example: <a href="./earthquake.html">earthquake.html</a>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-key="place">Place</th>
+          <th data-key="mag">Magnitude</th>
+          <th data-key="time">Time (UTC)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </aside>
+
+  <script>
+    
+    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN_HERE';
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [138, 37],
+      zoom: 3.8
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+    map.on('load', () => {
+
+      map.addSource('japan', { type: 'geojson', data: 'assets/japan.json' });
+
+      map.addLayer({
+        id: 'japan-fill',
+        type: 'fill',
+        source: 'japan',
+        paint: { 'fill-color': '#00e0b8', 'fill-opacity': 0.25 }
+      });
+
+      map.addLayer({
+        id: 'japan-outline',
+        type: 'line',
+        source: 'japan',
+        paint: { 'line-color': '#00e0b8', 'line-width': 2 }
+      });
+
+      map.addSource('quakes', { type: 'geojson', data: 'assets/earthquakes.geojson' });
+
+      map.addLayer({
+        id: 'quakes',
+        type: 'circle',
+        source: 'quakes',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['get','mag'], 0, 3, 6, 10],
+          'circle-color': ['interpolate', ['linear'], ['get','mag'],
+            0, '#7fb3ff', 3, '#3d8bfd', 5, '#ff6b6b'
+          ],
+          'circle-opacity': 0.9
+        }
+      });
+
+      map.on('click','quakes', e => {
+        const f = e.features[0];
+        const { place, mag, time } = f.properties;
+        const [lng, lat] = f.geometry.coordinates;
+        const t = time ? new Date(+time).toUTCString() : '';
+        new mapboxgl.Popup()
+          .setLngLat([lng, lat])
+          .setHTML(`<b>${place || 'Unknown location'}</b><br>Magnitude: ${mag}<br>${t}`)
+          .addTo(map);
+      });
+
+      map.on('mouseenter','quakes', () => map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave','quakes', () => map.getCanvas().style.cursor='');
+
+      fetch('assets/earthquakes.geojson')
+        .then(r => r.json())
+        .then(gj => {
+          const rows = (gj.features || []).map(f => ({
+            place: f.properties?.place ?? '—',
+            mag: Number(f.properties?.mag ?? 0),
+            time: Number(f.properties?.time ?? 0)
+          }));
+          makeTable(rows);
+        });
+
+      function makeTable(rows){
+        const tbody = document.querySelector('#tbl tbody');
+        const headers = [...document.querySelectorAll('#tbl thead th')];
+        let sortKey = 'mag', sortDir = 'desc';
+
+        function render(){
+          const sorted = rows.slice().sort((a,b)=>{
+            const av=a[sortKey], bv=b[sortKey];
+            return sortDir==='asc' ? av - bv : bv - av;
+          });
+          tbody.innerHTML = sorted.map(r=>{
+            const timeStr = r.time ? new Date(r.time).toISOString().replace('T',' ').replace('.000Z',' UTC') : '—';
+            return `<tr><td>${r.place}</td><td>${r.mag.toFixed(1)}</td><td>${timeStr}</td></tr>`;
+          }).join('');
+        }
+
+        headers.forEach(h=>{
+          h.addEventListener('click', ()=>{
+            const key = h.dataset.key;
+            if (sortKey === key) sortDir = (sortDir==='asc' ? 'desc' : 'asc');
+            else { sortKey = key; sortDir = 'asc'; }
+            headers.forEach(x=>x.classList.remove('sort-asc','sort-desc'));
 
