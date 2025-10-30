@@ -1,23 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Lab 3 — Japan & Earthquakes</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.16.1/mapbox-gl.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 3 – Japan & Earthquakes</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.js"></script>
   <style>
     :root { --panel-w: 380px; }
     html, body { margin: 0; height: 100%; }
     #map { position: fixed; inset: 0; }
-
     .panel {
       position: fixed;
       top: 16px;
       right: 16px;
       width: var(--panel-w);
       max-height: calc(100dvh - 32px);
-      background: rgba(255, 255, 255, 0.96);
+      background: rgba(255,255,255,0.96);
       backdrop-filter: blur(4px);
       border-radius: 14px;
       box-shadow: 0 8px 25px rgba(0,0,0,0.15);
@@ -26,31 +25,19 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
     }
     h1 { margin: 0 0 8px; font-size: 18px; }
-    .sub { color: #555; font-size: 12px; margin: 0 0 8px; }
-    .links a { color: #0066cc; text-decoration: none; }
-    .links a:hover { text-decoration: underline; }
-
+    .sub { font-size: 13px; color: #444; margin: 0 0 12px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; }
-    th { cursor: pointer; }
-    th.sort-asc::after { content: " ▲"; }
-    th.sort-desc::after { content: " ▼"; }
-
-    @media (max-width: 1024px) {
-      .panel { display: none; }
-    }
+    th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #ddd; }
+    th { cursor: pointer; background: #f0f0f0; }
+    tr:hover { background: #f9f9f9; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-
   <aside class="panel">
     <h1>Japan & Earthquakes</h1>
     <p class="sub">Dark basemap + 2 datasets + sortable table. Panel hides on small screens.</p>
-    <div class="links">
-      View example: <a href="./earthquake.html">earthquake.html</a>
-    </div>
-
+    <div><a href="./earthquake.html">earthquake.html</a></div>
     <table id="tbl">
       <thead>
         <tr>
@@ -64,7 +51,6 @@
   </aside>
 
   <script>
-    
     mapboxgl.accessToken = 'pk.eyJ1IjoiMjA2ZXQiLCJhIjoiY21oZHVlNGhsMDZvajJpb3JiYW44NDdkbCJ9.2t0kCjiMB6Mad8U9mEQfKQ';
 
     const map = new mapboxgl.Map({
@@ -74,86 +60,70 @@
       zoom: 3.8
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-
     map.on('load', () => {
-
-      map.addSource('japan', { type: 'geojson', data: 'assets/japan.json' });
+      map.addSource('japan', {
+        type: 'geojson',
+        data: './assets/japan.json'
+      });
 
       map.addLayer({
         id: 'japan-fill',
         type: 'fill',
         source: 'japan',
-        paint: { 'fill-color': '#00e0b8', 'fill-opacity': 0.25 }
-      });
-
-      map.addLayer({
-        id: 'japan-outline',
-        type: 'line',
-        source: 'japan',
-        paint: { 'line-color': '#00e0b8', 'line-width': 2 }
-      });
-
-      map.addSource('quakes', { type: 'geojson', data: 'assets/earthquakes.geojson' });
-
-      map.addLayer({
-        id: 'quakes',
-        type: 'circle',
-        source: 'quakes',
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['get','mag'], 0, 3, 6, 10],
-          'circle-color': ['interpolate', ['linear'], ['get','mag'],
-            0, '#7fb3ff', 3, '#3d8bfd', 5, '#ff6b6b'
-          ],
-          'circle-opacity': 0.9
+          'fill-color': '#3bb2d0',
+          'fill-opacity': 0.4
         }
       });
 
-      map.on('click','quakes', e => {
-        const f = e.features[0];
-        const { place, mag, time } = f.properties;
-        const [lng, lat] = f.geometry.coordinates;
-        const t = time ? new Date(+time).toUTCString() : '';
-        new mapboxgl.Popup()
-          .setLngLat([lng, lat])
-          .setHTML(`<b>${place || 'Unknown location'}</b><br>Magnitude: ${mag}<br>${t}`)
-          .addTo(map);
+      map.addSource('earthquakes', {
+        type: 'geojson',
+        data: './assets/earthquakes.geojson'
       });
 
-      map.on('mouseenter','quakes', () => map.getCanvas().style.cursor='pointer');
-      map.on('mouseleave','quakes', () => map.getCanvas().style.cursor='');
+      map.addLayer({
+        id: 'earthquakes-point',
+        type: 'circle',
+        source: 'earthquakes',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#ff4b4b',
+          'circle-stroke-color': '#fff',
+          'circle-stroke-width': 1
+        }
+      });
 
-      fetch('assets/earthquakes.geojson')
-        .then(r => r.json())
-        .then(gj => {
-          const rows = (gj.features || []).map(f => ({
-            place: f.properties?.place ?? '—',
-            mag: Number(f.properties?.mag ?? 0),
-            time: Number(f.properties?.time ?? 0)
-          }));
-          makeTable(rows);
-        });
-
-      function makeTable(rows){
-        const tbody = document.querySelector('#tbl tbody');
-        const headers = [...document.querySelectorAll('#tbl thead th')];
-        let sortKey = 'mag', sortDir = 'desc';
-
-        function render(){
-          const sorted = rows.slice().sort((a,b)=>{
-            const av=a[sortKey], bv=b[sortKey];
-            return sortDir==='asc' ? av - bv : bv - av;
+      fetch('./assets/earthquakes.geojson')
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.querySelector('#tbl tbody');
+          data.features.forEach(f => {
+            const row = document.createElement('tr');
+            const p = f.properties;
+            const date = new Date(p.time).toUTCString();
+            row.innerHTML = `<td>${p.place || 'N/A'}</td><td>${p.mag}</td><td>${date}</td>`;
+            tbody.appendChild(row);
           });
-          tbody.innerHTML = sorted.map(r=>{
-            const timeStr = r.time ? new Date(r.time).toISOString().replace('T',' ').replace('.000Z',' UTC') : '—';
-            return `<tr><td>${r.place}</td><td>${r.mag.toFixed(1)}</td><td>${timeStr}</td></tr>`;
-          }).join('');
-        }
+        });
+    });
 
-        headers.forEach(h=>{
-          h.addEventListener('click', ()=>{
-            const key = h.dataset.key;
-            if (sortKey === key) sortDir = (sortDir==='asc' ? 'desc' : 'asc');
-            else { sortKey = key; sortDir = 'asc'; }
-            headers.forEach(x=>x.classList.remove('sort-asc','sort-desc'));
-
+    document.querySelectorAll('th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        const rows = Array.from(document.querySelector('#tbl tbody').rows);
+        const asc = !th.classList.contains('asc');
+        document.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+        th.classList.add(asc ? 'asc' : 'desc');
+        rows.sort((a, b) => {
+          const va = a.cells[th.cellIndex].innerText;
+          const vb = b.cells[th.cellIndex].innerText;
+          return asc ? va.localeCompare(vb, undefined, {numeric:true}) : vb.localeCompare(va, undefined, {numeric:true});
+        });
+        const tbody = document.querySelector('#tbl tbody');
+        tbody.innerHTML = '';
+        rows.forEach(r => tbody.appendChild(r));
+      });
+    });
+  </script>
+</body>
+</html>
